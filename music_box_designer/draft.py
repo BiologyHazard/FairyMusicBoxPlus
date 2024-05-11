@@ -40,11 +40,11 @@ class DraftSettings(BaseModel):
     anti_alias: Literal['off', 'fast', 'accurate'] = 'fast'
     '''抗锯齿等级（仅对音符生效），可选值`'off', 'fast', 'accurate'`'''
     ppi: float = 300
-    '''图片分辨率，单位像素/英寸'''
+    '''图片分辨率，单位为像素/英寸'''
     paper_size: tuple[float, float] | None = (210, 297)
-    '''页面大小（宽，高），单位毫米，设置为`None`则会使得图片只有一栏并且自动调整大小'''
+    '''页面大小（宽，高），单位为毫米，设置为`None`则会使得图片只有一栏并且自动调整大小'''
     margins: tuple[float, float, float, float] = (8.0, 8.0, 0, 0)
-    '''页面边距（上，下，左，右），单位毫米'''
+    '''页面边距（上，下，左，右），单位为毫米'''
     background: Color | Image.Image = Color('white')
     '''背景颜色或图片，可传入`PIL.Image.Image`对象'''
     font_path: FilePath = Path('fonts/SourceHanSans.otf')
@@ -52,7 +52,7 @@ class DraftSettings(BaseModel):
     heading: str = '打谱软件：https://github.com/BiologyHazard/MusicBoxDesigner'
     '''页面顶部文字'''
     heading_size: NonNegativeFloat = 3.5
-    '''页面顶部文字大小，单位毫米，将以`round(heading_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''页面顶部文字大小，单位为毫米，将以`round(heading_size * ppi / MM_PER_INCH)`转变为像素大小'''
     heading_color: Color = Color('black')
     '''页面顶部文字颜色'''
     separating_line_color: Color = Color('black')
@@ -67,9 +67,9 @@ class DraftSettings(BaseModel):
     title_align: Literal['left', 'center', 'right'] = 'center'
     '''标题对齐方式'''
     title_height: FiniteFloat | None = None
-    '''标题到页面上边的距离，单位毫米，设置为`None`则自动'''
+    '''标题到页面上边的距离，单位为毫米，设置为`None`则自动'''
     title_size: NonNegativeFloat = 4.5
-    '''标题文字大小，单位毫米，将以`round(title_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''标题文字大小，单位为毫米，将以`round(title_size * ppi / MM_PER_INCH)`转变为像素大小'''
     title_color: Color = Color('black')
     '''标题颜色'''
 
@@ -78,9 +78,9 @@ class DraftSettings(BaseModel):
     subtitle_align: Literal['left', 'center', 'right'] = 'center'
     '''副标题对齐方式'''
     subtitle_height: FiniteFloat | None = None
-    '''副标题到页面上边的距离，单位毫米，设置为`None`则自动'''
+    '''副标题到页面上边的距离，单位为毫米，设置为`None`则自动'''
     subtitle_size: NonNegativeFloat = 3.0
-    '''副标题文字大小，单位毫米，将以`round(subtitle_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''副标题文字大小，单位为毫米，将以`round(subtitle_size * ppi / MM_PER_INCH)`转变为像素大小'''
     subtitle_color: Color = Color('black')
     '''副标题颜色'''
 
@@ -93,30 +93,30 @@ class DraftSettings(BaseModel):
     note_count_format: str = '{note_count} notes / {meter:.2f}m'
     '''音符数量和纸带长度信息的格式化字符串，支持参数`note_count`, `meter`, `centimeter`和`millimeter`'''
     tempo_note_count_size: NonNegativeFloat = 3.0
-    '''乐曲速度信息、音符数量和纸带长度信息文字大小，单位毫米，将以`round(tempo_note_count_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''乐曲速度信息、音符数量和纸带长度信息文字大小，单位为毫米，将以`round(tempo_note_count_size * ppi / MM_PER_INCH)`转变为像素大小'''
     tempo_note_count_color: Color = Color('black')
     '''乐曲速度信息、音符数量和纸带长度信息颜色'''
 
     # 谱面设置
     body_height: FiniteFloat | None = None
-    '''谱面到页面上边的距离，单位毫米，设置为`None`则自动'''
+    '''谱面到页面上边的距离，单位为毫米，设置为`None`则自动'''
 
     note_color: Color = Color('black')
     '''音符颜色'''
     note_radius: NonNegativeFloat = 1.04
-    '''音符半径，单位毫米'''
+    '''音符半径，单位为毫米'''
 
     show_column_info: bool = True
     '''是否在每栏右上角显示`music_info`以及栏号'''
     column_info_size: NonNegativeFloat = 6.0
-    '''栏信息文字大小，单位毫米，将以`round(column_info_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''栏信息文字大小，单位为毫米，将以`round(column_info_size * ppi / MM_PER_INCH)`转变为像素大小'''
     column_info_color: Color = Color('#00000080')
     '''栏信息颜色'''
 
     show_column_num: bool = True
     '''是否显示栏下方页码'''
     column_num_size: NonNegativeFloat = 3.0
-    '''栏下方页码文字大小，单位毫米，将以`round(column_num_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''栏下方页码文字大小，单位为毫米，将以`round(column_num_size * ppi / MM_PER_INCH)`转变为像素大小'''
     column_num_color: Color = Color('black')
     '''栏下方页码颜色'''
 
@@ -127,7 +127,7 @@ class DraftSettings(BaseModel):
     bar_num_start: int = 1
     '''小节号从几开始'''
     bar_num_size: NonNegativeFloat = 3.0
-    '''小节号文字大小，单位毫米，将以`round(bar_num_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''小节号文字大小，单位为毫米，将以`round(bar_num_size * ppi / MM_PER_INCH)`转变为像素大小'''
     bar_num_color: Color = Color('black')
     '''小节号颜色'''
 
@@ -136,7 +136,7 @@ class DraftSettings(BaseModel):
     custom_watermark: str = '自定义水印'
     '''自定义水印内容'''
     custom_watermark_size: NonNegativeFloat = 6.0
-    '''自定义水印文字大小，单位毫米，将以`round(custom_watermark_size * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''自定义水印文字大小，单位为毫米，将以`round(custom_watermark_size * ppi / MM_PER_INCH)`转变为像素大小'''
     custom_watermark_color: Color = Color('#00000060')
     '''自定义水印颜色'''
 
@@ -145,16 +145,30 @@ class DraftSettings(BaseModel):
     note_path_color: Color = Color('red')
     '''打孔路径颜色'''
     note_path_width: NonNegativeFloat = 0.5
-    '''打孔路径宽度，单位毫米，将以`round(note_path_width * ppi / MM_PER_INCH)`转变为像素大小'''
+    '''打孔路径宽度，单位为毫米，将以`round(note_path_width * ppi / MM_PER_INCH)`转变为像素大小'''
 
     whole_beat_line_color: Color = Color('black')
     '''整拍线条颜色'''
+    whole_beat_line_width: int = 1
+    '''整拍线条宽度，单位为像素，必须为非负整数'''
     half_beat_line_type: Literal['solid', 'dashed'] = 'solid'
     '''半拍线条类型，`'solid'`表示实线，`'dashed'`表示虚线'''
     half_beat_line_color: Color = Color('gray')
     '''半拍线条颜色'''
+    half_beat_line_width: int = 1
+    '''半拍线条宽度，单位为像素，必须为非负整数'''
     vertical_line_color: Color = Color('black')
     '''竖向线条颜色'''
+    vertical_line_width: int = 1
+    '''竖向线条宽度，单位为像素，必须为非负整数'''
+    special_vertical_lines_enabled: bool = False
+    """是否启用特殊竖向线条"""
+    special_vertical_lines: list[int] = [0, 7, 15, 22, 29]
+    """特殊竖向线条列表"""
+    special_vertical_line_color: Color = Color('black')
+    """特殊竖向线条颜色"""
+    special_vertical_line_width: int = 3
+    """特殊竖向线条宽度，单位为像素，必须为非负整数"""
 
     @field_validator('background')
     @classmethod
@@ -811,7 +825,7 @@ class Draft:
                         current_col_top_y = first_row_y
                         current_col_rows = rows_per_col
                     current_col_bottom_y: float = (
-                            current_col_top_y + current_col_rows * self.preset.length_mm_per_beat)
+                        current_col_top_y + current_col_rows * self.preset.length_mm_per_beat)
                     draw.text(
                         pos_mm_to_pixel((first_col_x + col_in_page * self.preset.col_width + self.preset.left_border,
                                          current_col_bottom_y),
@@ -891,6 +905,12 @@ class Draft:
                             raise ValueError
                 # 竖线
                 for line in range(self.preset.note_count):
+                    if settings.special_vertical_lines_enabled and line in settings.special_vertical_lines:
+                        width = settings.special_vertical_line_width
+                        color = settings.special_vertical_line_color.as_hex()
+                    else:
+                        width = settings.vertical_line_width
+                        color = settings.vertical_line_color.as_hex()
                     draw.line(
                         (pos_mm_to_pixel(
                             (first_col_x + col_in_page * self.preset.col_width
@@ -902,7 +922,7 @@ class Draft:
                               + self.preset.left_border + line * self.preset.grid_width,
                               current_col_y + current_col_rows * self.preset.length_mm_per_beat),
                              settings.ppi, 'floor')),
-                        settings.vertical_line_color.as_hex(), 1,
+                        color, width,
                     )
 
         # 小节号
