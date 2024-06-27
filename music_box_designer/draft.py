@@ -1169,8 +1169,8 @@ def calc_alpha(radius: float, distance: float) -> float:
     return radius + 1 / 2 - distance
 
 
-def mix_number(foreground: float, background: float, alpha: float) -> float:
-    return foreground * alpha + background * (1 - alpha)
+# def mix_number(foreground: float, background: float, alpha: float) -> float:
+#     return foreground * alpha + background * (1 - alpha)
 
 
 # type RGBA = tuple[float, float, float, float]
@@ -1287,6 +1287,10 @@ def dot_product_2d(vector_0: Vector_T, vector_1: Vector_T, /) -> float:
 
 
 def distance_point_to_line_ABC(point: Point_T, line_A: float, line_B: float, line_C: float, abs_: bool = True) -> float:
+    """
+    Calculate the distance between a point and a line in 2D space.
+    distance = |Ax + By + C| / sqrt(A^2 + B^2)
+    """
     x, y = point
     distance_with_sign: float = (line_A * x + line_B * y + line_C) / math.hypot(line_A, line_B)
     return abs(distance_with_sign) if abs_ else distance_with_sign
@@ -1301,6 +1305,10 @@ def distance_point_to_line_xy(point: Point_T, line_xy: XY_T) -> float:
 
 
 def distance_point_to_line_segment(point: Point_T, line_xy: XY_T) -> float:
+    """
+    Calculate the distance between a point and a line segment in 2D space.
+    If the point is outside the line segment, return the distance to the nearest endpoint.
+    """
     x, y = point
     (x0, y0), (x1, y1) = line_xy
     vector_AB: Vector_T = (x1 - x0, y1 - y0)
