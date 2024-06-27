@@ -21,7 +21,7 @@ def draft_func(args) -> None:
         title=args.title,
         subtitle=args.subtitle,
         music_info=args.music_info,
-        show_bpm=args.show_bpm,
+        tempo_text=args.tempo_text,
         scale=args.scale,
         overwrite=args.overwrite,
     )
@@ -86,7 +86,7 @@ draft_parser.add_argument('-b', '--bpm', type=float, default=None)
 draft_parser.add_argument('-T', '--title', type=str)
 draft_parser.add_argument('-S', '--subtitle', type=str)
 draft_parser.add_argument('-I', '--music-info', type=str)
-draft_parser.add_argument('-B', '--show-bpm', type=float)
+draft_parser.add_argument('-B', '--tempo-text', type=str)
 draft_parser.add_argument('-s', '--scale', type=float, default=1)
 draft_parser.add_argument('-o', '--overwrite', action='store_true')
 

@@ -60,8 +60,6 @@ subtitle_color: black
 
 # 是否显示乐曲速度信息
 show_tempo: true
-# 乐曲速度信息的格式化字符串，支持参数 bpm
-tempo_format: '{bpm:.0f}bpm'
 # 是否显示音符数量和纸带长度信息
 show_note_count: true
 # 音符数量和纸带长度信息的格式化字符串，支持参数 note_count, meter, centimeter 和 millimeter

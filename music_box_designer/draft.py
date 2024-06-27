@@ -21,7 +21,7 @@ from .emid import EMID_PITCHES, EMID_TICKS_PER_BEAT, EmidFile
 from .fmp import FmpFile, InstrumentConfig
 from .log import logger
 from .mcode import DEFAULT_PPQ, MCodeFile, MCodeNote, get_arranged_notes
-from .presets import MusicBox, music_box_30_notes, music_box_presets
+from .presets import MusicBox, music_box_30_notes
 
 DEFAULT_BPM: float = 120
 
@@ -86,8 +86,6 @@ class DraftSettings(BaseModel):
 
     show_tempo: bool = True
     '''是否显示乐曲速度信息'''
-    tempo_format: str = '{bpm:.0f}bpm'
-    '''乐曲速度信息的格式化字符串，支持参数`bpm`'''
     show_note_count: bool = True
     '''是否显示音符数量和纸带长度信息'''
     note_count_format: str = '{note_count} notes / {meter:.2f}m'
@@ -286,6 +284,7 @@ class Draft:
     """显示在栏右上角的名称"""
     file_path: Path | None = None
     bpm: float | None = None
+    bpm_range: tuple[float, float] | None = None
     time_signature: tuple[int, int] | None = None
 
     INFO_SPACING: float = 1.0
@@ -352,7 +351,8 @@ class Draft:
         if emid_file.file_path is not None:
             self.title = self.music_info = emid_file.file_path.stem
             self.file_path = emid_file.file_path
-        self.bpm = bpm
+        if bpm is not None:
+            self.bpm = bpm
 
         for track in emid_file.tracks:
             for note in track.notes:
@@ -402,7 +402,8 @@ class Draft:
         if fmp_file.subtitle is not None:
             self.subtitle = fmp_file.subtitle
         self.file_path = fmp_file.file_path
-        self.bpm = bpm if bpm is not None else mido.tempo2bpm(fmp_file.tempo)
+        if bpm is None:
+            self.bpm = mido.tempo2bpm(fmp_file.tempo)  # TODO: bpm_range
         self.time_signature = fmp_file.time_signature
 
         scale: float = fmp_file.scale / 100000
@@ -449,6 +450,8 @@ class Draft:
         else:
             if (temp := get_midi_bpm(midi_file)) is not None:
                 self.bpm = temp
+            if (temp := get_midi_bpm_range(midi_file)) is not None:
+                self.bpm_range = temp
 
         for track in midi_file.tracks:
             midi_tick: int = 0
@@ -556,7 +559,7 @@ class Draft:
                     title: str | None = None,
                     subtitle: str | None = None,
                     music_info: str | None = None,
-                    show_bpm: float | None = None,
+                    tempo_text: str | None = None,
                     scale: float = 1,
                     ) -> ImageList:
         # 由于在一拍当中插入时间标记会导致网格的错乱，故暂时不支持在乐曲中间更改时间标记。
@@ -567,8 +570,6 @@ class Draft:
             subtitle = self.subtitle
         if music_info is None:
             music_info = self.music_info
-        if show_bpm is None:
-            show_bpm = self.bpm if self.bpm is not None else 120
         if settings is None:
             settings = DraftSettings()
 
@@ -602,12 +603,18 @@ class Draft:
                 tempo_note_count_font: ImageFont.FreeTypeFont = ImageFont.truetype(
                     str(settings.font_path), round(mm_to_pixel(settings.tempo_note_count_size, settings.ppi)))
                 if settings.show_tempo:
-                    try:
-                        tempo_text: str = settings.tempo_format.format(bpm=show_bpm)
-                    except Exception as e:
-                        logger.warning(f'Cannot format tempo: {e!r}')
-                        logger.warning("Falling back to default tempo format '{bpm:.0f}bpm'.")
-                        tempo_text = '{bpm:.0f}bpm'.format(bpm=show_bpm)
+                    if self.bpm_range is None and self.bpm is None:
+                        tempo_text = ''
+                    else:
+                        if self.bpm_range is None:
+                            bpm_min = bpm_max = self.bpm
+                        else:
+                            bpm_min, bpm_max = self.bpm_range
+                        if tempo_text is None:
+                            if bpm_min == bpm_max:
+                                tempo_text = f'{bpm_min:.0f}bpm'
+                            else:
+                                tempo_text = f'{bpm_min:.0f}~{bpm_max:.0f}bpm'
                 else:
                     tempo_text = ''
 
@@ -744,8 +751,8 @@ class Draft:
                 else:
                     raise ValueError
 
-                draws[0].text(pos_mm_to_pixel((title_x, title_y), settings.ppi),  # type: ignore
-                              title, 'black', title_font, title_anchor, align=settings.title_align)  # type: ignore
+                draws[0].text(pos_mm_to_pixel((title_x, title_y), settings.ppi),
+                              title, 'black', title_font, title_anchor, align=settings.title_align)
 
             # 副标题
             if settings.show_subtitle:
@@ -762,8 +769,8 @@ class Draft:
                     raise ValueError
 
                 draws[0].text(
-                    pos_mm_to_pixel((subtitle_x, subtitle_y), settings.ppi),  # type: ignore
-                    subtitle, 'black', subtitle_font, subtitle_anchor,  # type: ignore
+                    pos_mm_to_pixel((subtitle_x, subtitle_y), settings.ppi),
+                    subtitle, 'black', subtitle_font, subtitle_anchor,
                     align=settings.subtitle_align,
                 )
 
@@ -784,7 +791,7 @@ class Draft:
                              body_y - Draft.INFO_SPACING),
                             settings.ppi,
                         ),
-                        note_count_text, 'black', tempo_note_count_font, 'rd',  # type: ignore
+                        note_count_text, 'black', tempo_note_count_font, 'rd',
                     )
 
         # music_info以及栏号
@@ -794,10 +801,16 @@ class Draft:
                 str(settings.font_path), round(mm_to_pixel(settings.column_info_size, settings.ppi)))
             for page, draw in enumerate(draws):
                 for col_in_page in range(cols_per_page):
+                    col = page * cols_per_page + col_in_page
+                    if col >= cols:
+                        continue
+                    current_col_y = body_y if col == 0 else first_row_y
+                    current_col_rows: int = first_col_rows if col == 0 else rows_per_col
                     if page == pages - 1 and col_in_page >= last_page_cols:
                         continue
-                    current_col_y = body_y if page == 0 and col_in_page == 0 else first_row_y
-                    for i, char in enumerate(f'{music_info}{page * cols_per_page + col_in_page + 1}'):
+                    column_info: str = music_info[:max(0, current_col_rows - 1)]  # 避免太长导致越界
+                    column_info = f"{column_info}{page * cols_per_page + col_in_page + 1}"
+                    for i, char in enumerate(column_info):
                         draw.text(
                             pos_mm_to_pixel(
                                 (first_col_x + (col_in_page + 1) * self.preset.col_width
@@ -818,12 +831,8 @@ class Draft:
                     col = page * cols_per_page + col_in_page
                     if col >= cols:
                         continue
-                    if col == 0:
-                        current_col_top_y: float = body_y
-                        current_col_rows: int = first_col_rows
-                    else:
-                        current_col_top_y = first_row_y
-                        current_col_rows = rows_per_col
+                    current_col_top_y: float = body_y if col == 0 else first_row_y
+                    current_col_rows = first_col_rows if col == 0 else rows_per_col
                     current_col_bottom_y: float = (
                         current_col_top_y + current_col_rows * self.preset.length_mm_per_beat)
                     draw.text(
@@ -835,14 +844,11 @@ class Draft:
         logger.debug('Drawing lines...')
         for page, draw in enumerate(draws):
             for col_in_page in range(cols_per_page):
-                if page == pages - 1 and col_in_page >= last_page_cols:
+                col = page * cols_per_page + col_in_page
+                if col >= cols:
                     continue
-                if page == 0 and col_in_page == 0:
-                    current_col_y: float = body_y
-                    current_col_rows: int = first_col_rows
-                else:
-                    current_col_y = first_row_y
-                    current_col_rows = rows_per_col
+                current_col_y = body_y if col == 0 else first_row_y
+                current_col_rows = first_col_rows if col == 0 else rows_per_col
                 # 整拍横线
                 for row in range(current_col_rows + 1):
                     draw.line(
@@ -1083,6 +1089,17 @@ def get_midi_bpm(midi_file: MidiFile) -> float | None:
             if message.type == 'set_tempo':
                 return mido.tempo2bpm(message.tempo)
     return None
+
+
+def get_midi_bpm_range(midi_file: MidiFile) -> tuple[float, float] | None:
+    bpm_set: set[float] = set()
+    for track in midi_file.tracks:
+        for message in track:
+            if message.type == 'set_tempo':
+                bpm_set.add(mido.tempo2bpm(message.tempo))
+    if not bpm_set:
+        return None
+    return min(bpm_set), max(bpm_set)
 
 
 def get_midi_time_signature(midi_file: MidiFile) -> tuple[int, int] | None:

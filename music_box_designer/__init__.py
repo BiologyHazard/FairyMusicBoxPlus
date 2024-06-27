@@ -178,7 +178,7 @@ def generate_draft(source_path: str | Path,
                    title: str | None = None,
                    subtitle: str | None = None,
                    music_info: str | None = None,
-                   show_bpm: float | None = None,
+                   tempo_text: str | None = None,
                    scale: float = 1,
                    overwrite: bool = False,
                    **kwargs) -> None:
@@ -206,7 +206,7 @@ def generate_draft(source_path: str | Path,
         title=title,
         subtitle=subtitle,
         music_info=music_info,
-        show_bpm=show_bpm,
+        tempo_text=tempo_text,
         scale=scale,
     ).save(destination, format='PDF' if pdf else 'PNG', overwrite=overwrite)
 
