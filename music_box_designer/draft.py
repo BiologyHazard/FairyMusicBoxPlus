@@ -638,6 +638,16 @@ class Draft:
                     note_count_text = ''
 
                 combined_text: str = f'{tempo_text}{note_count_text}'
+                note_count_text_x = self.preset.col_width - self.preset.right_border
+                note_count_text_anchor: str = 'rd'
+                if (settings.show_tempo and settings.show_note_count
+                    and pixel_to_mm(get_text_width(combined_text, tempo_note_count_font), settings.ppi)
+                        > (self.preset.note_count - 1) * self.preset.grid_width):
+                    combined_text = f'{tempo_text}\n{note_count_text}'
+                    tempo_text = f'{tempo_text}\n'
+                    note_count_text_x = self.preset.left_border
+                    note_count_text_anchor = 'ld'
+
                 if settings.body_height is None:
                     y += pixel_to_mm(get_text_height(combined_text, tempo_note_count_font), settings.ppi)
 
@@ -790,11 +800,11 @@ class Draft:
                 if settings.show_note_count:
                     draws[0].text(
                         pos_mm_to_pixel(
-                            (first_col_x + self.preset.col_width - self.preset.right_border,
+                            (first_col_x + note_count_text_x,
                              body_y - Draft.INFO_SPACING),
                             settings.ppi,
                         ),
-                        note_count_text, 'black', tempo_note_count_font, 'rd',
+                        note_count_text, 'black', tempo_note_count_font, note_count_text_anchor,
                     )
 
         # music_info以及栏号
@@ -1162,6 +1172,11 @@ def _get_empty_draw() -> ImageDraw.ImageDraw:
 def get_text_height(text: str, font: ImageFont.FreeTypeFont, **kwargs: Any) -> int:
     return (_get_empty_draw().multiline_textbbox((0, 0), text, font, 'la', **kwargs)[3]
             - _get_empty_draw().multiline_textbbox((0, 0), text, font, 'ld', **kwargs)[3])
+
+
+def get_text_width(text: str, font: ImageFont.FreeTypeFont, **kwargs: Any) -> int:
+    return (_get_empty_draw().multiline_textbbox((0, 0), text, font, 'la', **kwargs)[2]
+            - _get_empty_draw().multiline_textbbox((0, 0), text, font, 'ra', **kwargs)[2])
 
 
 def calc_alpha(radius: float, distance: float) -> float:
