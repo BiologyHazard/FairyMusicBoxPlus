@@ -6,7 +6,7 @@ from dataclasses import dataclass, field
 from functools import lru_cache
 from itertools import pairwise
 from pathlib import Path
-from typing import Any, Literal, Self, overload
+from typing import Any, ClassVar, Literal, Self, overload
 
 import mido
 import yaml
@@ -287,7 +287,7 @@ class Draft:
     bpm_range: tuple[float, float] | None = None
     time_signature: tuple[int, int] | None = None
 
-    INFO_SPACING: float = 1.0
+    INFO_SPACING: ClassVar[float] = 1.0
 
     @classmethod
     def load_from_file(cls,
@@ -376,22 +376,23 @@ class Draft:
                       bpm: float | None = None,
                       ) -> Self:
         self: Self = cls()
+        instrument_cfg: InstrumentConfig = fmp_file.get_instrument_cfg()
         if preset is None:
-            instrument_cfg: InstrumentConfig = fmp_file.get_instrument_cfg()
             grid_width: float = (instrument_cfg.ratchet_spacing
                                  if instrument_cfg.ratchet_spacing is not None
-                                 else 2)
+                                 else music_box_30_notes.grid_width)
             min_trigger_spacing: float = (instrument_cfg.effective_trigger_spacing
                                           if instrument_cfg.effective_trigger_spacing is not None
                                           else music_box_30_notes.min_trigger_spacing)
             length_mm_per_beat: float = (instrument_cfg.quarter_note_unit_length
                                          if instrument_cfg.quarter_note_unit_length is not None
                                          else music_box_30_notes.length_mm_per_beat)
+            range_: list[int] = [pitch + instrument_cfg.transpose for pitch in instrument_cfg.range]
             preset = MusicBox(
                 note_count=len(instrument_cfg.range),
-                range=instrument_cfg.range,
+                range=range_,
                 grid_width=grid_width,
-                left_border=music_box_30_notes.left_border,
+                left_border=music_box_30_notes.left_border,  # TODO: 20音的左右边距与30音的不同
                 right_border=music_box_30_notes.right_border,
                 min_trigger_spacing=min_trigger_spacing,
                 length_mm_per_beat=length_mm_per_beat,
@@ -404,6 +405,8 @@ class Draft:
         self.file_path = fmp_file.file_path
         if bpm is None:
             self.bpm = mido.tempo2bpm(fmp_file.tempo)  # TODO: bpm_range
+        else:
+            self.bpm = bpm
         self.time_signature = fmp_file.time_signature
 
         scale: float = fmp_file.scale / 100000
@@ -411,7 +414,7 @@ class Draft:
             for note in track.notes:
                 if note.velocity == 0:
                     continue
-                self.notes.append(Note(pitch=note.pitch + transposition,
+                self.notes.append(Note(pitch=note.pitch + instrument_cfg.transpose + transposition,
                                        time=note.tick / fmp_file.ticks_per_beat * scale))
 
         self.remove_out_of_range_notes()

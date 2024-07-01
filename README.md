@@ -160,7 +160,7 @@ python main.py --help
     - 可选参数 `-T TITLE, --title TITLE` 重写标题。
     - 可选参数 `-S SUBTITLE, --subtitle SUBTITLE` 重写副标题。
     - 可选参数 `-I MUSIC_INFO, --music-info MUSIC_INFO` 重写位于每栏右上角的乐曲信息。
-    - 可选参数 `-B SHOW_BPM, --show-bpm SHOW_BPM` 指定乐曲速度信息的显示值。
+    - 可选参数 `-B TEMPO_TEXT, --tempo-text TEMPO_TEXT` 指定乐曲速度信息的显示文本。
     - 可选参数 `-s SCALE, --scale SCALE` 指定 note 圆点纵向间距的缩放倍数。默认为 1（不缩放）。
     - 可选参数 `-o, --overwrite` 表示允许覆盖现有的文件。
 
