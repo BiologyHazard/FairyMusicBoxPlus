@@ -411,11 +411,15 @@ class Draft:
 
         scale: float = fmp_file.scale / 100000
         for track in fmp_file.tracks:
-            for note in track.notes:
-                if note.velocity == 0:
-                    continue
-                self.notes.append(Note(pitch=note.pitch + instrument_cfg.transpose + transposition,
-                                       time=note.tick / fmp_file.ticks_per_beat * scale))
+            for channel in fmp_file.channels[1:]:
+                if channel.index == track.channel and channel.participate_generate is False:
+                    break
+            else:
+                for note in track.notes:
+                    if note.velocity == 0:
+                        continue
+                    self.notes.append(Note(pitch=note.pitch + instrument_cfg.transpose + transposition,
+                                           time=note.tick / fmp_file.ticks_per_beat * scale))
 
         self.remove_out_of_range_notes()
         if remove_blank:
