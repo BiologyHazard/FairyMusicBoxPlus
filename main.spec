@@ -23,7 +23,7 @@ a = Analysis(
     hookspath=[],
     hooksconfig={},
     runtime_hooks=[],
-    excludes=['numpy'],
+    excludes=[],
     noarchive=False,
 )
 pyz = PYZ(a.pure)
