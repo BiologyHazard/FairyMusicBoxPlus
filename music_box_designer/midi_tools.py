@@ -1,8 +1,9 @@
-import mido
-from mido import Message, MetaMessage, MidiFile, MidiTrack
-import random
 import copy
-from .log import logger
+import random
+
+import mido
+from mido import Message, MidiFile, MidiTrack
+
 from .consts import DEFAULT_DURATION
 
 
@@ -30,17 +31,3 @@ def random_time_and_velocity(midi_file: MidiFile,
         new_track.sort(key=lambda message: message.time)
         new_file.tracks.append(MidiTrack(mido.midifiles.tracks._to_reltime(new_track)))
     return new_file
-
-
-# def random_velocity(midi_file: MidiFile, sigma: float = 8, mu: float = 64) -> MidiFile:
-#     new_file: MidiFile = copy.copy(midi_file)
-#     new_file.tracks = []
-#     for midi_track in midi_file.tracks:
-#         new_track = MidiTrack()
-#         for message in midi_track:
-#             if message.type == 'note_on' and message.velocity > 0:
-#                 new_track.append(message.copy(velocity=round(random.gauss(mu, sigma))))
-#             else:
-#                 new_track.append(message.copy())
-#         new_file.tracks.append(new_track)
-#     return new_file

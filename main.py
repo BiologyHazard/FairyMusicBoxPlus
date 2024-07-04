@@ -10,7 +10,8 @@ def convert_func(args) -> None:
 
 def draft_func(args) -> None:
     return generate_draft(
-        file_path=args.file_path,
+        source_path=args.file_path,
+        destination=args.destination,
         settings_path=args.settings_path,
         pdf=args.pdf,
         note_count=args.note_count,
@@ -21,7 +22,7 @@ def draft_func(args) -> None:
         title=args.title,
         subtitle=args.subtitle,
         music_info=args.music_info,
-        show_bpm=args.show_bpm,
+        tempo_text=args.tempo_text,
         scale=args.scale,
         overwrite=args.overwrite,
     )
@@ -77,16 +78,17 @@ draft_parser = subparsers.add_parser('draft', help='Generate draft pics.')
 draft_parser.set_defaults(func=draft_func)
 draft_parser.add_argument('file_path', type=str)
 draft_parser.add_argument('settings_path', type=str, nargs='?', default='draft_settings.yml')
+draft_parser.add_argument('-d', '--destination', type=str)
 draft_parser.add_argument('-p', '--pdf', action='store_true')
-draft_parser.add_argument('-N', '--note-count', type=int, default=30)
+draft_parser.add_argument('-N', '--note-count', type=int)
 draft_parser.add_argument('-t', '--transposition', type=int, default=0)
 draft_parser.add_argument('-k', '--keep-blank', action='store_true')
 draft_parser.add_argument('-n', '--keep-near-notes', action='store_true')
-draft_parser.add_argument('-b', '--bpm', type=float, default=None)
+draft_parser.add_argument('-b', '--bpm', type=float)
 draft_parser.add_argument('-T', '--title', type=str)
 draft_parser.add_argument('-S', '--subtitle', type=str)
 draft_parser.add_argument('-I', '--music-info', type=str)
-draft_parser.add_argument('-B', '--show-bpm', type=float)
+draft_parser.add_argument('-B', '--tempo-text', type=str)
 draft_parser.add_argument('-s', '--scale', type=float, default=1)
 draft_parser.add_argument('-o', '--overwrite', action='store_true')
 
@@ -96,7 +98,7 @@ count_parser.add_argument('file_path', type=str)
 count_parser.add_argument('-t', '--transposition', type=int, default=0)
 count_parser.add_argument('-k', '--keep-blank', action='store_true')
 count_parser.add_argument('-n', '--keep-near-notes', action='store_true')
-count_parser.add_argument('-b', '--bpm', type=float, default=None)
+count_parser.add_argument('-b', '--bpm', type=float)
 count_parser.add_argument('-s', '--scale', type=float, default=1)
 
 
