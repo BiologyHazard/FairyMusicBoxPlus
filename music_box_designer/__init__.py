@@ -23,6 +23,17 @@ from .log import logger
 from .mcode import MCodeFile
 from .presets import get_preset
 
+
+def pure_suffix(path: Path) -> str:
+    if '.' in path.name:
+        return f'.{path.name.rsplit('.', maxsplit=1)[1]}'
+    return ''
+
+
+def pure_stem(path: Path) -> str:
+    return path.name.rsplit('.', maxsplit=1)[0]
+
+
 # from functools import wraps
 # from typing import TypeVar
 # _T = TypeVar('_T')
@@ -131,13 +142,6 @@ def convert(source: str | Path,
             destination: str | Path,
             transposition: int = 0,
             overwrite: bool = False) -> None:
-    def pure_suffix(path: Path) -> str:
-        if '.' in path.name:
-            return f'.{path.name.rsplit('.', maxsplit=1)[1]}'
-        return ''
-
-    def pure_stem(path: Path) -> str:
-        return path.name.rsplit('.', maxsplit=1)[0]
 
     source = Path(source)
     destination = Path(destination)
@@ -161,9 +165,9 @@ def convert(source: str | Path,
                 temp_destination: Path = path.with_suffix(
                     pure_suffix(destination))  # source_directory/source_name.suffix
             else:  # something/name.suffix
-                temp_destination = destination.with_stem(source.stem)  # something/source_name.suffix
+                temp_destination = destination.parent / f'{path.stem}{pure_suffix(destination)}'  # something/source_name.suffix
             # 递归调用 convert 单文件的版本
-            return convert(path, temp_destination, transposition=transposition, overwrite=overwrite)
+            convert(path, temp_destination, transposition=transposition, overwrite=overwrite)
 
 
 def generate_draft(source_path: str | Path,
@@ -191,24 +195,53 @@ def generate_draft(source_path: str | Path,
         obj.update(kwargs)
         settings = DraftSettings.model_validate(obj)
 
-    # if note_count is not None and note_count not in music_box_presets:
-    #     raise ValueError(f'{note_count} note music box not in presets.')
-    # preset: MusicBoxPreset | None = music_box_presets[note_count] if note_count is not None else None
-    Draft.load_from_file(
-        source_path,
-        preset=get_preset(note_count),
-        transposition=transposition,
-        remove_blank=remove_blank,
-        skip_near_notes=skip_near_notes,
-        bpm=bpm,
-    ).export_pics(
-        settings=settings,
-        title=title,
-        subtitle=subtitle,
-        music_info=music_info,
-        tempo_text=tempo_text,
-        scale=scale,
-    ).save(destination, format='PDF' if pdf else 'PNG', overwrite=overwrite)
+    source = Path(source_path)
+    if pure_suffix(source) not in _SUPPORTED_SUFFIXES:
+        raise ValueError("The source extension must be '.emid', '.fmp' or '.mid'.")
+
+    if pure_stem(source) not in ('', '*'):  # 如果指定了特定一个文件
+        return Draft.load_from_file(
+            source_path,
+            preset=get_preset(note_count),
+            transposition=transposition,
+            remove_blank=remove_blank,
+            skip_near_notes=skip_near_notes,
+            bpm=bpm,
+        ).export_pics(
+            settings=settings,
+            title=title,
+            subtitle=subtitle,
+            music_info=music_info,
+            tempo_text=tempo_text,
+            scale=scale,
+        ).save(destination, format='PDF' if pdf else 'PNG', overwrite=overwrite)
+
+    # 如果未指定特定一个文件，则把 source 目录下所有符合扩展名的文件全部转换
+    for path in source.parent.iterdir():
+        if path.suffix == pure_suffix(source):
+            if destination is None:
+                temp_destination = None
+            else:
+                temp_destination = Path(destination) / f'{path.stem}{'.pdf' if pdf else '_{}.png'}'
+            # 递归调用 generate_draft 单文件的版本
+            generate_draft(
+                source_path=path,
+                destination=temp_destination,
+                settings_path=settings_path,
+                pdf=pdf,
+                note_count=note_count,
+                transposition=transposition,
+                remove_blank=remove_blank,
+                skip_near_notes=skip_near_notes,
+                bpm=bpm,
+                title=title,
+                subtitle=subtitle,
+                music_info=music_info,
+                tempo_text=tempo_text,
+                scale=scale,
+                overwrite=overwrite,
+                **kwargs,
+            )
 
 
 def get_note_count_and_length(file_path: str | Path,

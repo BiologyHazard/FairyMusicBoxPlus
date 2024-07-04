@@ -216,8 +216,8 @@ class ImageList(list[Image.Image]):
         - `overwrite`: 是否允许覆盖同名文件，默认为 `False`
         """
         # TODO: What if self doesn't have attribute 'file_name'?
-        if format is None and file_name is not None:
-            format = Path(file_name).suffix.lstrip('.').upper()
+        # if format is None and file_name is not None:
+        #     format = Path(file_name).suffix.lstrip('.').upper()
         if format is not None and format.upper() == 'PDF':
             return self.save_pdf(file_name, overwrite)
         else:
