@@ -15,7 +15,7 @@ from numpy.typing import NDArray
 
 from .consts import DEFAULT_DURATION, MIDI_DEFAULT_TICKS_PER_BEAT
 from .log import logger
-from .mcode import music_box_30_notes
+from .presets import music_box_30_notes
 
 type Pos_T = tuple[float, float]
 
