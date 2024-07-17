@@ -45,8 +45,8 @@ music_box_15_notes = MusicBox(
     range=[68, 70, 72, 73, 75, 77, 79,
            80, 82, 84, 85, 87, 89, 91, 92],
     grid_width=2,
-    left_border=6,
-    right_border=6,
+    left_border=6.5,
+    right_border=6.5,
 )
 
 music_box_presets: dict[int, MusicBox] = {
