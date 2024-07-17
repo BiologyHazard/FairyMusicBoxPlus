@@ -6,9 +6,12 @@ __all__: list[str] = [
     'midi_to_fmp',
     'convert',
     'generate_draft',
+    'humanize',
     'get_note_count_and_length',
+    'recognize_draft',
 ]
 
+import itertools
 from collections.abc import Callable
 from pathlib import Path
 from typing import Any
@@ -22,6 +25,8 @@ from .fmp import FmpFile
 from .log import logger
 from .mcode import MCodeFile
 from .presets import get_preset
+from .recognize import Note, export_midi, recognize_multi_image, recognize_pdf
+from .midi_tools import random_time_and_velocity
 
 
 def pure_suffix(path: Path) -> str:
@@ -244,6 +249,34 @@ def generate_draft(source_path: str | Path,
             )
 
 
+def humanize(source: str | Path,
+             destination: str | Path | None,
+             time_sigma: float = 1/96,
+             velocity_mu: float = 64,
+             velocity_sigma: float = 8,
+             overwrite: bool = False) -> None:
+    source_path = Path(source)
+
+    if pure_stem(source_path) not in ('', '*'):  # 如果指定了特定一个文件
+        if destination is None:
+            destination = source_path.with_stem(f'{source_path.stem}_humanized')
+        return random_time_and_velocity(
+            MidiFile(source_path),
+            time_sigma=time_sigma,
+            velocity_mu=velocity_mu,
+            velocity_sigma=velocity_sigma,
+        ).save(find_available_filename(destination, overwrite=overwrite))
+
+    # 如果未指定特定一个文件，则把 source 目录下所有符合扩展名的文件全部转换
+    for path in source_path.parent.iterdir():
+        if path.suffix == pure_suffix(source_path):
+            if destination is not None:
+                temp_destination: Path | None = Path(destination) / f'{path.name}'
+            else:
+                temp_destination = None
+            humanize(path, temp_destination, time_sigma, velocity_mu, velocity_sigma, overwrite)
+
+
 def get_note_count_and_length(file_path: str | Path,
                               note_count: int | None = None,
                               transposition: int = 0,
@@ -263,3 +296,30 @@ def get_note_count_and_length(file_path: str | Path,
         length = 0
 
     return len(draft.notes), length
+
+
+def recognize_draft(source: str | Path,
+                    destination: str | Path | None = None,
+                    quantization: float = 1/4,
+                    overwrite: bool = False) -> None:
+    source_path = Path(source)
+    if source_path.suffix == '.pdf':
+        result: list[Note] = recognize_pdf(source_path)
+    else:
+        image_paths: list[Path] = []
+        for i in itertools.count(0):
+            image_path = Path(source_path.as_posix().format(i))
+            if image_path.is_file():
+                image_paths.append(image_path)
+            elif i > 1:  # 允许图片从1开始
+                break
+        if not image_paths:
+            raise FileNotFoundError(f'No such file or directory: {source}')
+        result = recognize_multi_image(image_paths)
+
+    if destination is not None:
+        destination_path = Path(destination)
+    else:
+        destination_path = source_path.with_suffix('.mid')
+
+    export_midi(result, quantization).save(find_available_filename(destination_path, overwrite=overwrite))
