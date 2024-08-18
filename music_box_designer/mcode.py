@@ -7,19 +7,27 @@ from dataclasses import dataclass, field
 from io import BytesIO
 from itertools import pairwise
 from pathlib import Path
-from typing import NamedTuple, Self, TextIO
+from typing import Literal, NamedTuple, Self, TextIO
 
 import mido
-from PIL import Image, ImageDraw
 from mido import Message, MidiFile, MidiTrack
+from PIL import Image, ImageDraw
 
-from .consts import MIDI_DEFAULT_TICKS_PER_BEAT, DEFAULT_DURATION
+from .consts import DEFAULT_DURATION, MIDI_DEFAULT_TICKS_PER_BEAT
 from .log import logger
-from .presets import music_box_30_notes
+from .presets import MusicBox, music_box_presets
 
 DEFAULT_PPQ: int = 96
 DEFAULT_PUNCHER_TIMES: int = 2
+DEFAULT_START_Y = 0
+DEFAULT_END_Y = 1000
 base64_regex: str = r'([A-Za-z0-9+/]{4})*([A-Za-z0-9+/]{4}|[A-Za-z0-9+/]{3}=|[A-Za-z0-9+/]{2}==)'
+
+ADD_NUMBER: dict[Literal[15, 20, 30], int] = {
+    15: 101,
+    20: 201,
+    30: 1,
+}
 
 
 class MCodeMessage(NamedTuple):
@@ -30,15 +38,35 @@ class MCodeMessage(NamedTuple):
     def __str__(self) -> str:
         return f'M{self.M} Y{self.Y} P{self.P}'
 
+    @classmethod
+    def from_str(cls, s: str) -> Self:
+        try:
+            Mxx, Yxx, Pxx = s.strip().split()
+            if Mxx[0] != 'M' or Yxx[0] != 'Y' or Pxx[0] != 'P':
+                raise ValueError
+            M = int(Mxx[1:])
+            Y = int(Yxx[1:])
+            P = int(Pxx[1:])
+        except Exception:
+            raise ValueError(f'Invalid mcode message: {s}')
+        return cls(M, Y, P)
+
+
+class MCodeComment(str):
+    pass
+
 
 class MCodeNote(NamedTuple):
     pitch_index: int
     tick: int
 
 
-def calculate_distance(delta_index: int, delta_tick: int, ppq: int = DEFAULT_PPQ) -> float:
-    return math.hypot(delta_index * music_box_30_notes.grid_width,
-                      delta_tick / ppq * music_box_30_notes.length_mm_per_beat)
+def calculate_distance(delta_index: int,
+                       delta_tick: int,
+                       ppq: int = DEFAULT_PPQ,
+                       note_count: Literal[15, 20, 30] = 30) -> float:
+    return math.hypot(delta_index * music_box_presets[note_count].grid_width,
+                      delta_tick / ppq * music_box_presets[note_count].length_mm_per_beat)
 
 
 class _NoteLine(NamedTuple):
@@ -61,7 +89,9 @@ def _get_note_lines(notes: list[MCodeNote]) -> list[_NoteLine]:
     return note_lines
 
 
-def get_arranged_notes(notes: list[MCodeNote], ppq: int = DEFAULT_PPQ) -> list[MCodeNote]:
+def get_arranged_notes(notes: list[MCodeNote],
+                       ppq: int = DEFAULT_PPQ,
+                       note_count: Literal[15, 20, 30] = 30) -> list[MCodeNote]:
     # Do we have an algorithm which uses O(1) extra space?
     notes = sorted(notes, key=lambda note: (note.tick, note.pitch_index))
     note_lines: list[_NoteLine] = _get_note_lines(notes)
@@ -77,22 +107,22 @@ def get_arranged_notes(notes: list[MCodeNote], ppq: int = DEFAULT_PPQ) -> list[M
         distance_positive_positive: float = distance_positive + calculate_distance(
             previous_note_line.pitch_indexes[-1] - current_note_line.pitch_indexes[0],
             previous_note_line.tick - current_note_line.tick,
-            ppq,
+            ppq, note_count,
         )
         distance_negative_positive: float = distance_negative + calculate_distance(
             previous_note_line.pitch_indexes[0] - current_note_line.pitch_indexes[0],
             previous_note_line.tick - current_note_line.tick,
-            ppq,
+            ppq, note_count,
         )
         distance_positive_negative: float = distance_positive + calculate_distance(
             previous_note_line.pitch_indexes[-1] - current_note_line.pitch_indexes[-1],
             previous_note_line.tick - current_note_line.tick,
-            ppq,
+            ppq, note_count,
         )
         distance_negative_negative: float = distance_negative + calculate_distance(
             previous_note_line.pitch_indexes[0] - current_note_line.pitch_indexes[-1],
             previous_note_line.tick - current_note_line.tick,
-            ppq,
+            ppq, note_count,
         )
 
         distance_positive = min(distance_positive_positive, distance_negative_positive)
@@ -104,7 +134,7 @@ def get_arranged_notes(notes: list[MCodeNote], ppq: int = DEFAULT_PPQ) -> list[M
         current_line_distance: float = calculate_distance(
             0,
             current_note_line.pitch_indexes[-1] - current_note_line.pitch_indexes[0],
-            ppq,
+            ppq, note_count,
         )
         distance_positive += current_line_distance
         distance_negative += current_line_distance
@@ -156,6 +186,7 @@ def messages_to_notes(messages: Iterable[MCodeMessage],
 @dataclass
 class MCodeFile:
     ppq: int = DEFAULT_PPQ
+    note_count: Literal[15, 20, 30] = 30
     puncher_times: int = DEFAULT_PUNCHER_TIMES
     messages: list[MCodeMessage] = field(default_factory=list)
     comments: list[str] = field(default_factory=lambda: [''] * 5)
@@ -196,9 +227,29 @@ class MCodeFile:
     @classmethod
     def from_midi(cls,
                   midi_file: MidiFile,
+                  note_count: Literal[15, 20, 30, None] = None,
                   transposition: int = 0,
+                  puncher_times: int = DEFAULT_PUNCHER_TIMES,
                   store_bytes: bool = True) -> Self:
-        mcode_file: Self = cls()
+        # If note_count is None, choose the best one that can contain most notes.
+        if note_count is not None:
+            actual_note_count: Literal[15, 20, 30] = note_count
+        else:
+            note_pitches: list[int] = [
+                message.note
+                for track in midi_file.tracks for message in track
+                if message.type == 'note_on'
+            ]
+            out_of_range_note_number: dict[Literal[15, 20, 30], int] = {
+                _note_count:
+                sum(1 for note_pitch in note_pitches
+                    if note_pitch + transposition not in music_box_presets[_note_count].range)
+                for _note_count in (15, 20, 30)
+            }
+            actual_note_count = min(out_of_range_note_number, key=out_of_range_note_number.get)  # type: ignore
+
+        mcode_file: Self = cls(puncher_times=puncher_times, note_count=actual_note_count)
+        preset: MusicBox = music_box_presets[actual_note_count]
         notes: list[MCodeNote] = []
         for track in midi_file.tracks:
             midi_tick: int = 0
@@ -206,24 +257,24 @@ class MCodeFile:
                 midi_tick += message.time
                 if message.type == 'note_on' and message.velocity > 0:
                     try:
-                        pitch_index: int = music_box_30_notes.range.index(message.note + transposition)
+                        pitch_index: int = preset.range.index(message.note + transposition)
                     except ValueError:
                         logger.warning(f'Note {message.note + transposition} is not in the range of the music box.')
                         continue
-                    notes.append(MCodeNote(pitch_index + 1,
+                    notes.append(MCodeNote(pitch_index + ADD_NUMBER[actual_note_count],
                                            round(midi_tick / midi_file.ticks_per_beat * mcode_file.ppq)))
 
-        notes = get_arranged_notes(notes, mcode_file.ppq)
+        notes = get_arranged_notes(notes, mcode_file.ppq, mcode_file.note_count)
 
-        mcode_file.messages.append(MCodeMessage(90, 500, 0))
-        mcode_file.messages.extend(notes_to_messages(notes))
-        mcode_file.messages.append(MCodeMessage(80, 500, 0))
+        mcode_file.messages.append(MCodeMessage(90, DEFAULT_START_Y, 0))
+        mcode_file.messages.extend(notes_to_messages(notes, puncher_times))
+        mcode_file.messages.append(MCodeMessage(80, DEFAULT_END_Y, 0))
 
         total_ticks: int = notes[-1].tick if notes else 0
         mcode_file.comments[0] = f'Total: {total_ticks} ticks'
         mcode_file.comments[1] = f'PPQ: {mcode_file.ppq} ticks'
         mcode_file.comments[2] = time.strftime('%Y-%m-%d %H:%M:%S', time.localtime())
-        mcode_file.comments[3] = f'MusicBoxPuncher MCode. Generated by Music Box Designer.'
+        mcode_file.comments[3] = f'MusicBoxPuncher MCode. VERSION 1.4. Generated by Music Box Designer.'
         if store_bytes:
             bytes_io = BytesIO()
             midi_file.save(file=bytes_io)
@@ -254,7 +305,7 @@ class MCodeFile:
                 return midi_file
 
         for pitch_index, tick in messages_to_notes(self.messages):
-            pitch = music_box_30_notes.range[pitch_index - 1] + transposition
+            pitch: int = music_box_presets[self.note_count].range[pitch_index - ADD_NUMBER[self.note_count]] + transposition
             if pitch not in range(128):
                 logger.warning(f'Note {pitch} is not in range(128).')
                 continue
@@ -273,27 +324,28 @@ class MCodeFile:
     def generate_pic(self, ppi: float = 300) -> Image.Image:
         from .draft import draw_circle, mm_to_pixel, pos_mm_to_pixel
 
+        preset: MusicBox = music_box_presets[self.note_count]
         notes: list[MCodeNote] = list(messages_to_notes(self.messages, ignore_M90_M80_Y=False))
         tick: int = notes[-1].tick if notes else 0
-        length: float = tick / self.ppq * music_box_30_notes.length_mm_per_beat
-        image_size: tuple[int, int] = pos_mm_to_pixel((music_box_30_notes.col_width, length), ppi, 'round')
+        length: float = tick / self.ppq * preset.length_mm_per_beat
+        image_size: tuple[int, int] = pos_mm_to_pixel((preset.col_width, length), ppi, 'round')
         image: Image.Image = Image.new('RGBA', image_size, 'white')
         draw: ImageDraw.ImageDraw = ImageDraw.Draw(image)
         for index, tick in notes:
             draw_circle(
                 image,
-                pos_mm_to_pixel((music_box_30_notes.left_border + index * music_box_30_notes.grid_width,
-                                 tick / self.ppq * music_box_30_notes.length_mm_per_beat),
+                pos_mm_to_pixel((preset.left_border + index * preset.grid_width,
+                                 tick / self.ppq * preset.length_mm_per_beat),
                                 ppi, 'round'),
                 mm_to_pixel(1, ppi), 'black',
             )
         for (index0, tick0), (index1, tick1) in pairwise(notes):
             draw.line(
-                (pos_mm_to_pixel((music_box_30_notes.left_border + index0 * music_box_30_notes.grid_width,
-                                  tick0 / self.ppq * music_box_30_notes.length_mm_per_beat),
+                (pos_mm_to_pixel((preset.left_border + index0 * preset.grid_width,
+                                  tick0 / self.ppq * preset.length_mm_per_beat),
                                  ppi, 'round'),
-                 pos_mm_to_pixel((music_box_30_notes.left_border + index1 * music_box_30_notes.grid_width,
-                                  tick1 / self.ppq * music_box_30_notes.length_mm_per_beat),
+                 pos_mm_to_pixel((preset.left_border + index1 * preset.grid_width,
+                                  tick1 / self.ppq * preset.length_mm_per_beat),
                                  ppi, 'round')),
                 'black',
                 round(mm_to_pixel(0.5, ppi)),
@@ -310,8 +362,8 @@ class MCodeFile:
         return '\n'.join(self.iter_lines())
 
     def save(self, file: str | Path | TextIO) -> None:
-        if len(self.comments) != 5:
-            raise ValueError(f'Length of comments should be 5, got {len(self.comments)}.')
+        # if len(self.comments) != 5:
+        #     raise ValueError(f'Length of comments should be 5, got {len(self.comments)}.')
         s: str = str(self)
         if isinstance(file, str | Path):
             with open(file, 'w', encoding='utf-8') as fp:
