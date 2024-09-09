@@ -57,7 +57,7 @@ def pdf_to_images(pdf_path: str | Path, dpi=300) -> Generator[bytes, Any, None]:
         yield pixmap.tobytes()
 
 
-def remove_near_lines(lines: NDArray[np.float32]) -> NDArray[np.float32]:
+def remove_near_lines(lines: NDArray) -> NDArray:
     median: float = float(np.median(np.diff(lines)))
     min_distance: float = median * 2 / 3
     result: list[float] = []
@@ -72,7 +72,7 @@ def remove_near_lines(lines: NDArray[np.float32]) -> NDArray[np.float32]:
     return np.array(result)
 
 
-def remove_far_lines(lines: NDArray[np.float32]) -> NDArray[np.float32]:
+def remove_far_lines(lines: NDArray) -> NDArray:
     median: float = float(np.median(np.diff(lines)))
     max_distance: float = median * 4 / 3
     result: list[float] = []
